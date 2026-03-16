@@ -3,13 +3,12 @@ import java.util.*;
 /**
  * BookMyStayApp
  *
- * Demonstrates reservation confirmation and room allocation with
- * uniqueness enforcement and inventory consistency.
+ * Demonstrates add-on service selection for existing reservations.
  *
  * Book My Stay Application
  *
- * @author Srujan Uppalapu
- * @version 6.0
+ * Author: Srujan Uppalapu
+ * Version: 7.0
  */
 
 /* Reservation Class */
@@ -18,33 +17,25 @@ class Reservation {
     private String guestName;
     private String roomType;
     private String assignedRoomId;
+    private double basePrice;
 
-    public Reservation(String guestName, String roomType) {
+    public Reservation(String guestName, String roomType, double basePrice) {
         this.guestName = guestName;
         this.roomType = roomType;
+        this.basePrice = basePrice;
         this.assignedRoomId = null;
     }
 
-    public String getGuestName() {
-        return guestName;
-    }
+    public String getGuestName() { return guestName; }
+    public String getRoomType() { return roomType; }
+    public void setAssignedRoomId(String roomId) { this.assignedRoomId = roomId; }
+    public String getAssignedRoomId() { return assignedRoomId; }
+    public double getBasePrice() { return basePrice; }
 
-    public String getRoomType() {
-        return roomType;
-    }
-
-    public void setAssignedRoomId(String roomId) {
-        this.assignedRoomId = roomId;
-    }
-
-    public void displayConfirmation() {
-        if (assignedRoomId != null) {
-            System.out.println("Guest: " + guestName + " | Room Type: " + roomType
-                    + " | Assigned Room ID: " + assignedRoomId);
-        } else {
-            System.out.println("Guest: " + guestName + " | Room Type: " + roomType
-                    + " | Status: Pending / Not Available");
-        }
+    public void displayReservation() {
+        System.out.println("Guest: " + guestName +
+                " | Room Type: " + roomType +
+                (assignedRoomId != null ? " | Assigned Room ID: " + assignedRoomId : " | Not Assigned"));
     }
 }
 
@@ -58,10 +49,6 @@ class RoomInventory {
         inventory.put("Single Room", 5);
         inventory.put("Double Room", 3);
         inventory.put("Suite Room", 2);
-    }
-
-    public int getAvailability(String roomType) {
-        return inventory.getOrDefault(roomType, 0);
     }
 
     public boolean allocateRoom(String roomType) {
@@ -81,6 +68,56 @@ class RoomInventory {
     }
 }
 
+/* Add-On Service Class */
+class AddOnService {
+
+    private String serviceName;
+    private double cost;
+
+    public AddOnService(String serviceName, double cost) {
+        this.serviceName = serviceName;
+        this.cost = cost;
+    }
+
+    public String getServiceName() { return serviceName; }
+    public double getCost() { return cost; }
+
+    public void displayService() {
+        System.out.println(serviceName + " ($" + cost + ")");
+    }
+}
+
+/* Add-On Service Manager */
+class AddOnServiceManager {
+
+    private Map<String, List<AddOnService>> reservationServices;
+
+    public AddOnServiceManager() {
+        reservationServices = new HashMap<>();
+    }
+
+    public void addService(Reservation reservation, AddOnService service) {
+        reservationServices.putIfAbsent(reservation.getAssignedRoomId(), new ArrayList<>());
+        reservationServices.get(reservation.getAssignedRoomId()).add(service);
+        System.out.println("Added service " + service.getServiceName() + " for " + reservation.getGuestName());
+    }
+
+    public void displayServices(Reservation reservation) {
+        List<AddOnService> services = reservationServices.get(reservation.getAssignedRoomId());
+        if (services == null || services.isEmpty()) {
+            System.out.println(reservation.getGuestName() + " has no add-on services.");
+            return;
+        }
+        System.out.println("Add-on services for " + reservation.getGuestName() + ":");
+        double totalCost = 0;
+        for (AddOnService s : services) {
+            s.displayService();
+            totalCost += s.getCost();
+        }
+        System.out.println("Total Add-On Cost: $" + totalCost);
+    }
+}
+
 /* Booking Service – handles allocation */
 class BookingService {
 
@@ -93,7 +130,7 @@ class BookingService {
         this.bookingQueue = bookingQueue;
         this.inventory = inventory;
         this.allocatedRoomIds = new HashMap<>();
-        this.roomIdCounter = 100; // Starting room ID number
+        this.roomIdCounter = 100;
     }
 
     public void processBookings() {
@@ -104,16 +141,14 @@ class BookingService {
             String type = reservation.getRoomType();
 
             if (inventory.allocateRoom(type)) {
-                // Generate unique room ID
                 String roomId = generateUniqueRoomId(type);
                 reservation.setAssignedRoomId(roomId);
-
                 System.out.println("Booking confirmed for " + reservation.getGuestName());
             } else {
                 System.out.println("No available rooms for " + reservation.getGuestName() + " (" + type + ")");
             }
 
-            reservation.displayConfirmation();
+            reservation.displayReservation();
         }
     }
 
@@ -129,23 +164,21 @@ class BookingService {
     }
 }
 
-/* Main Application Class */
+/* Main Application */
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
         System.out.println("====================================");
         System.out.println("        Book My Stay App");
-        System.out.println("           Version 6.0");
+        System.out.println("           Version 7.0");
         System.out.println("====================================");
 
-        // Initialize booking request queue
+        // Initialize booking queue
         Queue<Reservation> bookingQueue = new LinkedList<>();
-        bookingQueue.offer(new Reservation("Alice", "Single Room"));
-        bookingQueue.offer(new Reservation("Bob", "Suite Room"));
-        bookingQueue.offer(new Reservation("Charlie", "Double Room"));
-        bookingQueue.offer(new Reservation("David", "Suite Room"));
-        bookingQueue.offer(new Reservation("Eve", "Suite Room")); // Will exceed availability
+        bookingQueue.offer(new Reservation("Alice", "Single Room", 100));
+        bookingQueue.offer(new Reservation("Bob", "Suite Room", 300));
+        bookingQueue.offer(new Reservation("Charlie", "Double Room", 180));
 
         // Initialize inventory
         RoomInventory inventory = new RoomInventory();
@@ -154,10 +187,25 @@ public class BookMyStayApp {
         // Process bookings
         BookingService bookingService = new BookingService(bookingQueue, inventory);
         bookingService.processBookings();
-
-        // Display inventory after allocation
         inventory.displayInventory();
 
-        System.out.println("\nRoom allocation completed successfully.");
+        // Initialize Add-On Service Manager
+        AddOnServiceManager serviceManager = new AddOnServiceManager();
+
+        // Create some services
+        AddOnService breakfast = new AddOnService("Breakfast", 20);
+        AddOnService spa = new AddOnService("Spa", 50);
+        AddOnService airportPickup = new AddOnService("Airport Pickup", 30);
+
+        // Assign services to reservations
+        serviceManager.addService(new Reservation("Alice", "Single Room", 100) {{ setAssignedRoomId("SI100"); }}, breakfast);
+        serviceManager.addService(new Reservation("Bob", "Suite Room", 300) {{ setAssignedRoomId("SU101"); }}, spa);
+        serviceManager.addService(new Reservation("Bob", "Suite Room", 300) {{ setAssignedRoomId("SU101"); }}, airportPickup);
+
+        // Display services for each reservation
+        System.out.println();
+        serviceManager.displayServices(new Reservation("Alice", "Single Room", 100) {{ setAssignedRoomId("SI100"); }});
+        serviceManager.displayServices(new Reservation("Bob", "Suite Room", 300) {{ setAssignedRoomId("SU101"); }});
+        serviceManager.displayServices(new Reservation("Charlie", "Double Room", 180) {{ setAssignedRoomId("DO102"); }});
     }
 }
