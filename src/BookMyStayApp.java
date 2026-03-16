@@ -3,17 +3,21 @@ import java.util.*;
 /**
  * BookMyStayApp
  *
- * Demonstrates booking history tracking and reporting for confirmed reservations.
- *
- * Book My Stay Application
+ * Demonstrates error handling and validation in hotel booking management.
  *
  * Author: Srujan Uppalapu
- * Version: 8.0
+ * Version: 9.0
  */
+
+/* Custom Exception for invalid booking requests */
+class InvalidBookingException extends Exception {
+    public InvalidBookingException(String message) {
+        super(message);
+    }
+}
 
 /* Reservation Class */
 class Reservation {
-
     private String guestName;
     private String roomType;
     private String assignedRoomId;
@@ -39,9 +43,8 @@ class Reservation {
     }
 }
 
-/* Room Inventory Class */
+/* Room Inventory with validation */
 class RoomInventory {
-
     private Map<String, Integer> inventory;
 
     public RoomInventory() {
@@ -51,13 +54,16 @@ class RoomInventory {
         inventory.put("Suite Room", 2);
     }
 
-    public boolean allocateRoom(String roomType) {
-        int available = inventory.getOrDefault(roomType, 0);
-        if (available > 0) {
-            inventory.put(roomType, available - 1);
-            return true;
+    public boolean allocateRoom(String roomType) throws InvalidBookingException {
+        if (!inventory.containsKey(roomType)) {
+            throw new InvalidBookingException("Invalid room type: " + roomType);
         }
-        return false;
+        int available = inventory.get(roomType);
+        if (available <= 0) {
+            throw new InvalidBookingException("No available rooms for: " + roomType);
+        }
+        inventory.put(roomType, available - 1);
+        return true;
     }
 
     public void displayInventory() {
@@ -70,7 +76,6 @@ class RoomInventory {
 
 /* Booking History Class */
 class BookingHistory {
-
     private List<Reservation> confirmedBookings;
 
     public BookingHistory() {
@@ -86,9 +91,8 @@ class BookingHistory {
     }
 }
 
-/* Booking Service – handles allocation and history tracking */
+/* Booking Service with validation */
 class BookingService {
-
     private Queue<Reservation> bookingQueue;
     private RoomInventory inventory;
     private Map<String, Set<String>> allocatedRoomIds;
@@ -105,20 +109,17 @@ class BookingService {
 
     public void processBookings() {
         System.out.println("\nProcessing booking requests...\n");
-
         while (!bookingQueue.isEmpty()) {
             Reservation reservation = bookingQueue.poll();
-            String type = reservation.getRoomType();
-
-            if (inventory.allocateRoom(type)) {
-                String roomId = generateUniqueRoomId(type);
+            try {
+                inventory.allocateRoom(reservation.getRoomType());
+                String roomId = generateUniqueRoomId(reservation.getRoomType());
                 reservation.setAssignedRoomId(roomId);
                 bookingHistory.addReservation(reservation);
                 System.out.println("Booking confirmed for " + reservation.getGuestName());
-            } else {
-                System.out.println("No available rooms for " + reservation.getGuestName() + " (" + type + ")");
+            } catch (InvalidBookingException e) {
+                System.out.println("Booking failed for " + reservation.getGuestName() + ": " + e.getMessage());
             }
-
             reservation.displayReservation();
         }
     }
@@ -129,7 +130,6 @@ class BookingService {
         do {
             roomId = roomType.substring(0, 2).toUpperCase() + roomIdCounter++;
         } while (allocatedRoomIds.get(roomType).contains(roomId));
-
         allocatedRoomIds.get(roomType).add(roomId);
         return roomId;
     }
@@ -137,7 +137,6 @@ class BookingService {
 
 /* Booking Report Service */
 class BookingReportService {
-
     private BookingHistory bookingHistory;
 
     public BookingReportService(BookingHistory bookingHistory) {
@@ -167,34 +166,30 @@ class BookingReportService {
 public class BookMyStayApp {
 
     public static void main(String[] args) {
-
         System.out.println("====================================");
         System.out.println("        Book My Stay App");
-        System.out.println("           Version 8.0");
+        System.out.println("           Version 9.0");
         System.out.println("====================================");
 
-        // Initialize booking queue
+        // Booking queue with valid and invalid requests
         Queue<Reservation> bookingQueue = new LinkedList<>();
         bookingQueue.offer(new Reservation("Alice", "Single Room", 100));
         bookingQueue.offer(new Reservation("Bob", "Suite Room", 300));
         bookingQueue.offer(new Reservation("Charlie", "Double Room", 180));
         bookingQueue.offer(new Reservation("David", "Suite Room", 300));
-        bookingQueue.offer(new Reservation("Eve", "Suite Room", 300)); // Exceeds availability
+        bookingQueue.offer(new Reservation("Eve", "Suite Room", 300));   // Exceeds availability
+        bookingQueue.offer(new Reservation("Frank", "Penthouse", 500));   // Invalid room type
 
-        // Initialize inventory and history
         RoomInventory inventory = new RoomInventory();
         BookingHistory bookingHistory = new BookingHistory();
 
         inventory.displayInventory();
 
-        // Process bookings
         BookingService bookingService = new BookingService(bookingQueue, inventory, bookingHistory);
         bookingService.processBookings();
 
-        // Display inventory after allocation
         inventory.displayInventory();
 
-        // Generate booking report
         BookingReportService reportService = new BookingReportService(bookingHistory);
         reportService.generateReport();
     }
